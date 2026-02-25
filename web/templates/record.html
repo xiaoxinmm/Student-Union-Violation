@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>违纪录入 - 违纪管理系统</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="top-bar">
+    <span class="title">违纪录入</span>
+    <nav>
+      <a href="/">首页</a>
+      <a href="/record" class="cur">录入</a>
+      <a href="/public">公示</a>
+      <a href="/audit">审查</a>
+    </nav>
+    <div class="right">
+      <span id="userBadge"></span>
+      <a href="#" onclick="App.logout();return false">注销</a>
+    </div>
+  </div>
+
+  <div class="wrap-sm">
+    <div class="panel mt-2">
+      <div class="panel-head">校内违纪信息上报</div>
+      <div class="panel-body">
+        <form id="violationForm" onsubmit="return handleSubmit(event)">
+          <div class="form-2col">
+            <div class="fg">
+              <label>宿舍号 *</label>
+              <input type="text" name="dorm" class="fc" placeholder="如：301" maxlength="20" required>
+            </div>
+            <div class="fg">
+              <label>学生姓名 *</label>
+              <input type="text" name="student_name" class="fc" placeholder="违纪学生姓名" maxlength="50" required>
+            </div>
+          </div>
+
+          <div class="form-2col">
+            <div class="fg">
+              <label>班级 *</label>
+              <input type="text" name="class_name" class="fc" placeholder="如：电气2301" maxlength="50" required>
+            </div>
+            <div class="fg">
+              <label>时间段 *</label>
+              <select name="period" class="fc" required>
+                <option value="">请选择</option>
+                <option value="早操">早操</option>
+                <option value="课间操">课间操</option>
+                <option value="上午">上午</option>
+                <option value="中午">中午</option>
+                <option value="午休">午休</option>
+                <option value="下午">下午</option>
+                <option value="晚休">晚休</option>
+                <option value="晚自习">晚自习</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="fg">
+            <label>违纪原因 *</label>
+            <textarea name="reason" class="fc" rows="3" placeholder="描述违纪情况" maxlength="2000" required></textarea>
+          </div>
+
+          <div class="form-2col">
+            <div class="fg">
+              <label>检查部门 *</label>
+              <select name="department" class="fc" required>
+                <option value="">请选择</option>
+                <option value="纪检部">纪检部</option>
+                <option value="体育部">体育部</option>
+                <option value="学习部">学习部</option>
+                <option value="卫生部">卫生部</option>
+                <option value="学生科">学生科</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label>执勤人 *</label>
+              <input type="text" name="inspector" class="fc" placeholder="执勤人员姓名" maxlength="100" required>
+            </div>
+          </div>
+
+          <div class="fg">
+            <label>胸卡照片（可选）</label>
+            <div class="upload-area" id="fileWrap">
+              <input type="file" name="photo" accept="image/jpeg,image/png,image/gif,image/webp" onchange="previewFile(this)">
+              点击上传照片（JPG/PNG/GIF/WebP，最大5MB）
+            </div>
+            <div class="upload-preview" id="filePreview"></div>
+          </div>
+
+          <button type="submit" class="btn btn-blue" id="submitBtn" style="width:100%;text-align:center;padding:8px;">
+            提交到学生科
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    (async function () {
+      var user = await App.checkAuth();
+      if (user) {
+        document.getElementById('userBadge').textContent = user.username + (user.role === 'admin' ? ' (管理员)' : '');
+      }
+    })();
+
+    function previewFile(input) {
+      var preview = document.getElementById('filePreview');
+      preview.innerHTML = '';
+      if (input.files && input.files[0]) {
+        var file = input.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          App.toast('文件不能超过 5MB', 'error');
+          input.value = '';
+          return;
+        }
+        var img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        preview.appendChild(img);
+      }
+    }
+
+    async function handleSubmit(e) {
+      e.preventDefault();
+      var btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = '提交中...';
+
+      try {
+        var form = document.getElementById('violationForm');
+        var formData = new FormData(form);
+
+        var res = await App.api('/api/violations', {
+          method: 'POST',
+          body: formData
+        });
+
+        var data = await res.json();
+
+        if (res.ok) {
+          App.toast('提交成功');
+          form.reset();
+          document.getElementById('filePreview').innerHTML = '';
+        } else {
+          App.toast(data.error || '提交失败', 'error');
+        }
+      } catch (err) {
+        App.toast('网络错误', 'error');
+      }
+
+      btn.disabled = false;
+      btn.textContent = '提交到学生科';
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>审查管理 - 违纪管理系统</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="top-bar">
+    <span class="title">审查管理</span>
+    <nav>
+      <a href="/">首页</a>
+      <a href="/record">录入</a>
+      <a href="/public">公示</a>
+      <a href="/audit" class="cur">审查</a>
+      <a href="/export">导出</a>
+    </nav>
+    <div class="right">
+      <span id="userBadge"></span>
+      <a href="#" onclick="App.logout();return false">注销</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="stat-row">
+      <div class="stat-item">
+        <div class="label">今日违纪</div>
+        <div class="num" id="statToday">-</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">总记录数</div>
+        <div class="num" id="statTotal">-</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">系统用户</div>
+        <div class="num" id="statUsers">-</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span>违纪记录审查</span>
+        <div class="toolbar">
+          <input type="text" id="searchInput" placeholder="搜索姓名、班级、宿舍..." onkeyup="debounceSearch()">
+          <input type="date" id="dateFilter" onchange="loadViolations()">
+          <button class="btn btn-sm" onclick="clearFilters()">清除</button>
+          <button class="btn btn-sm btn-blue" id="manageUsersBtn" style="display:none" onclick="App.showModal('userModal')">用户管理</button>
+        </div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>宿舍</th>
+              <th>姓名</th>
+              <th>班级</th>
+              <th>时间段</th>
+              <th>违纪原因</th>
+              <th>部门</th>
+              <th>执勤人</th>
+              <th>照片</th>
+              <th>录入时间</th>
+              <th>录入人</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="12" class="loading">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="pagination" class="pager"></div>
+    </div>
+  </div>
+
+  <!-- 照片查看 -->
+  <div class="photo-overlay" id="photoViewer" onclick="this.classList.remove('active')">
+    <img id="photoImg" src="" alt="照片">
+  </div>
+
+  <!-- 删除确认 -->
+  <div class="modal-bg" id="deleteModal">
+    <div class="modal">
+      <div class="modal-head">
+        <span>确认删除</span>
+        <button class="modal-close" onclick="App.hideModal('deleteModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>确定要删除这条违纪记录吗？此操作不可撤销。</p>
+        <p class="text-muted mt-1" id="deleteInfo"></p>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="App.hideModal('deleteModal')">取消</button>
+        <button class="btn btn-red" id="confirmDeleteBtn" onclick="confirmDelete()">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 用户管理 -->
+  <div class="modal-bg" id="userModal">
+    <div class="modal" style="max-width:560px">
+      <div class="modal-head">
+        <span>用户管理</span>
+        <button class="modal-close" onclick="App.hideModal('userModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <b style="font-size:13px;">添加新用户</b>
+          <form id="addUserForm" onsubmit="return addUser(event)" style="margin-top:8px">
+            <div class="form-2col">
+              <div class="fg"><input type="text" class="fc" id="newUsername" placeholder="用户名" required></div>
+              <div class="fg"><input type="password" class="fc" id="newPassword" placeholder="密码（至少6位）" required minlength="6"></div>
+            </div>
+            <div class="form-2col">
+              <div class="fg"><input type="text" class="fc" id="newDisplayName" placeholder="显示名称（可选）"></div>
+              <div class="fg" style="display:flex;align-items:end;gap:6px;">
+                <select class="fc" id="newRole">
+                  <option value="staff">普通成员</option>
+                  <option value="admin">管理员</option>
+                </select>
+                <button type="submit" class="btn btn-blue btn-sm">添加</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>用户名</th><th>显示名</th><th>角色</th><th>操作</th></tr>
+          </thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 重置密码 -->
+  <div class="modal-bg" id="resetPwModal">
+    <div class="modal" style="max-width:360px">
+      <div class="modal-head">
+        <span>重置密码</span>
+        <button class="modal-close" onclick="App.hideModal('resetPwModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="fg">
+          <label>新密码</label>
+          <input type="password" class="fc" id="resetPwInput" placeholder="至少6位" minlength="6">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" onclick="App.hideModal('resetPwModal')">取消</button>
+        <button class="btn btn-blue" onclick="doResetPassword()">确认重置</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    var currentPage = 1;
+    var deleteId = null;
+    var resetUserId = null;
+    var searchTimer = null;
+    var isAdmin = false;
+
+    (async function () {
+      var user = await App.checkAuth();
+      if (user) {
+        document.getElementById('userBadge').textContent = user.username + (user.role === 'admin' ? ' (管理员)' : '');
+        isAdmin = user.role === 'admin';
+        if (isAdmin) document.getElementById('manageUsersBtn').style.display = '';
+      }
+      loadStats();
+      loadViolations();
+    })();
+
+    async function loadStats() {
+      try {
+        var data = await App.apiJSON('/api/stats');
+        if (data) {
+          document.getElementById('statToday').textContent = data.today_count;
+          document.getElementById('statTotal').textContent = data.total_count;
+          document.getElementById('statUsers').textContent = data.user_count;
+        }
+      } catch (e) {}
+    }
+
+    async function loadViolations() {
+      var keyword = document.getElementById('searchInput').value.trim();
+      var date = document.getElementById('dateFilter').value;
+      var params = new URLSearchParams({ page: currentPage, limit: 30 });
+      if (keyword) params.set('keyword', keyword);
+      if (date) params.set('date', date);
+
+      try {
+        var data = await App.apiJSON('/api/violations?' + params);
+        if (!data) return;
+
+        var tbody = document.getElementById('tableBody');
+
+        if (!data.data || data.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" class="empty">暂无记录</td></tr>';
+          document.getElementById('pagination').innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = data.data.map(function (v) {
+          return '<tr>' +
+            '<td>' + v.id + '</td>' +
+            '<td>' + App.escapeHtml(v.dorm) + '</td>' +
+            '<td><b>' + App.escapeHtml(v.student_name) + '</b></td>' +
+            '<td>' + App.escapeHtml(v.class_name) + '</td>' +
+            '<td><span class="tag tag-warn">' + App.escapeHtml(v.period) + '</span></td>' +
+            '<td style="max-width:200px">' + App.escapeHtml(v.reason) + '</td>' +
+            '<td><span class="tag">' + App.escapeHtml(v.department) + '</span></td>' +
+            '<td>' + App.escapeHtml(v.inspector) + '</td>' +
+            '<td>' + (v.photo_path ? '<a href="#" onclick="viewPhoto(' + v.id + ');return false" class="btn btn-sm">查看</a>' : '<span class="text-muted">无</span>') + '</td>' +
+            '<td class="text-muted" style="white-space:nowrap">' + App.formatDateTime(v.created_at) + '</td>' +
+            '<td>' + App.escapeHtml(v.creator_name) + '</td>' +
+            '<td>' + (isAdmin ? '<button class="btn btn-sm btn-red" onclick="askDelete(' + v.id + ',\'' + App.escapeHtml(v.student_name) + '\')">删除</button>' : '') + '</td>' +
+            '</tr>';
+        }).join('');
+
+        var totalPages = Math.ceil(data.total / data.limit);
+        renderPagination(totalPages, data.total);
+      } catch (e) {
+        document.getElementById('tableBody').innerHTML =
+          '<tr><td colspan="12" class="text-c text-red">加载失败</td></tr>';
+      }
+    }
+
+    function renderPagination(totalPages, total) {
+      var el = document.getElementById('pagination');
+      if (totalPages <= 1) { el.innerHTML = ''; return; }
+
+      var html = '<button ' + (currentPage <= 1 ? 'disabled' : '') + ' onclick="goPage(' + (currentPage - 1) + ')">上一页</button>';
+      for (var i = 1; i <= totalPages && i <= 10; i++) {
+        html += '<button class="' + (i === currentPage ? 'cur' : '') + '" onclick="goPage(' + i + ')">' + i + '</button>';
+      }
+      html += '<span class="info">共 ' + total + ' 条</span>';
+      html += '<button ' + (currentPage >= totalPages ? 'disabled' : '') + ' onclick="goPage(' + (currentPage + 1) + ')">下一页</button>';
+      el.innerHTML = html;
+    }
+
+    function goPage(p) { currentPage = p; loadViolations(); }
+
+    function debounceSearch() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { currentPage = 1; loadViolations(); }, 300);
+    }
+
+    function clearFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('dateFilter').value = '';
+      currentPage = 1;
+      loadViolations();
+    }
+
+    function viewPhoto(id) {
+      var viewer = document.getElementById('photoViewer');
+      var img = document.getElementById('photoImg');
+      img.src = '/api/violations/' + id + '/photo';
+      viewer.classList.add('active');
+    }
+
+    function askDelete(id, name) {
+      deleteId = id;
+      document.getElementById('deleteInfo').textContent = '记录 #' + id + ' - ' + name;
+      App.showModal('deleteModal');
+    }
+
+    async function confirmDelete() {
+      if (!deleteId) return;
+      var btn = document.getElementById('confirmDeleteBtn');
+      btn.disabled = true;
+
+      try {
+        var res = await App.api('/api/violations/' + deleteId, { method: 'DELETE' });
+        var data = await res.json();
+        if (res.ok) {
+          App.toast('删除成功');
+          loadViolations();
+          loadStats();
+        } else {
+          App.toast(data.error || '删除失败', 'error');
+        }
+      } catch (e) {
+        App.toast('操作失败', 'error');
+      }
+
+      btn.disabled = false;
+      deleteId = null;
+      App.hideModal('deleteModal');
+    }
+
+    // 用户管理
+    async function loadUsers() {
+      var data = await App.apiJSON('/api/users');
+      if (!data || !data.data) return;
+
+      document.getElementById('userTableBody').innerHTML = data.data.map(function (u) {
+        return '<tr>' +
+          '<td>' + u.id + '</td>' +
+          '<td>' + App.escapeHtml(u.username) + '</td>' +
+          '<td>' + App.escapeHtml(u.display_name) + '</td>' +
+          '<td><span class="tag' + (u.role === 'admin' ? '' : ' tag-ok') + '">' + (u.role === 'admin' ? '管理员' : '成员') + '</span></td>' +
+          '<td>' +
+            '<button class="btn btn-sm" onclick="askResetPw(' + u.id + ')">重置密码</button> ' +
+            '<button class="btn btn-sm btn-red" onclick="deleteUser(' + u.id + ',\'' + App.escapeHtml(u.username) + '\')">删除</button>' +
+          '</td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    var userModalEl = document.getElementById('userModal');
+    var _mo = new MutationObserver(function () {
+      if (userModalEl.classList.contains('active')) loadUsers();
+    });
+    _mo.observe(userModalEl, { attributes: true, attributeFilter: ['class'] });
+
+    async function addUser(e) {
+      e.preventDefault();
+      var res = await App.api('/api/users', {
+        method: 'POST',
+        json: {
+          username: document.getElementById('newUsername').value.trim(),
+          password: document.getElementById('newPassword').value,
+          display_name: document.getElementById('newDisplayName').value.trim(),
+          role: document.getElementById('newRole').value
+        }
+      });
+      var data = await res.json();
+      if (res.ok) {
+        App.toast('用户创建成功');
+        document.getElementById('addUserForm').reset();
+        loadUsers();
+        loadStats();
+      } else {
+        App.toast(data.error || '创建失败', 'error');
+      }
+      return false;
+    }
+
+    async function deleteUser(id, name) {
+      if (!confirm('确定删除用户 "' + name + '" 吗？')) return;
+      var res = await App.api('/api/users/' + id, { method: 'DELETE' });
+      var data = await res.json();
+      if (res.ok) {
+        App.toast('用户已删除');
+        loadUsers();
+      } else {
+        App.toast(data.error, 'error');
+      }
+    }
+
+    function askResetPw(id) {
+      resetUserId = id;
+      document.getElementById('resetPwInput').value = '';
+      App.showModal('resetPwModal');
+    }
+
+    async function doResetPassword() {
+      var pw = document.getElementById('resetPwInput').value;
+      if (pw.length < 6) { App.toast('密码至少6位', 'warning'); return; }
+
+      var res = await App.api('/api/users/' + resetUserId + '/password', {
+        method: 'PUT',
+        json: { password: pw }
+      });
+      var data = await res.json();
+      if (res.ok) {
+        App.toast('密码已重置');
+        App.hideModal('resetPwModal');
+      } else {
+        App.toast(data.error, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

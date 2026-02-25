@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据导出 - 违纪管理系统</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="top-bar">
+    <span class="title">数据导出</span>
+    <nav>
+      <a href="/">首页</a>
+      <a href="/record">录入</a>
+      <a href="/public">公示</a>
+      <a href="/audit">审查</a>
+      <a href="/export" class="cur">导出</a>
+    </nav>
+    <div class="right">
+      <span id="userBadge"></span>
+      <a href="#" onclick="App.logout();return false">注销</a>
+    </div>
+  </div>
+
+  <div class="wrap-sm">
+    <div class="panel mt-2">
+      <div class="panel-head">导出违纪记录</div>
+      <div class="panel-body">
+        <p class="text-muted mb-2">选择日期导出当天的违纪记录为 CSV 文件（可用 Excel 打开）。</p>
+
+        <div class="form-2col">
+          <div class="fg">
+            <label>选择日期</label>
+            <input type="date" class="fc" id="exportDate">
+          </div>
+          <div class="fg" style="display:flex;align-items:end;">
+            <button class="btn btn-blue" onclick="doExport()">导出 CSV</button>
+          </div>
+        </div>
+
+        <p class="form-hint">不选择日期则默认导出今日数据。CSV 文件可直接用 Excel / WPS 打开。</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    (async function () {
+      var user = await App.checkAuth();
+      if (user) {
+        document.getElementById('userBadge').textContent = user.username;
+      }
+      document.getElementById('exportDate').value = new Date().toISOString().split('T')[0];
+    })();
+
+    function doExport() {
+      var date = document.getElementById('exportDate').value;
+      var params = date ? '?date=' + date : '';
+      window.location.href = '/api/export/csv' + params;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学生会违纪管理系统</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="top-bar">
+    <span class="title">违纪管理系统</span>
+    <nav>
+      <a href="/" class="cur">首页</a>
+      <a href="/public">公示</a>
+      <a href="/login" id="loginLink">登录</a>
+    </nav>
+  </div>
+
+  <div class="wrap">
+    <div class="home-head">
+      <h1>学生会违纪记录管理系统</h1>
+      <p>校内违纪信息录入、公示、审查</p>
+    </div>
+
+    <div class="stat-row" id="statsRow">
+      <div class="stat-item">
+        <div class="label">今日违纪</div>
+        <div class="num" id="statToday">-</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">总记录数</div>
+        <div class="num" id="statTotal">-</div>
+      </div>
+      <div class="stat-item">
+        <div class="label">系统用户</div>
+        <div class="num" id="statUsers">-</div>
+      </div>
+    </div>
+
+    <div class="mod-list">
+      <a href="/record" class="mod-item">
+        <h3>交底系统</h3>
+        <p>学生会成员登录后录入违纪信息，上传胸卡照片</p>
+      </a>
+      <a href="/public" class="mod-item">
+        <h3>公示系统</h3>
+        <p>今日违纪记录一览，自动刷新，面向全校公示</p>
+      </a>
+      <a href="/audit" class="mod-item">
+        <h3>审查系统</h3>
+        <p>管理员查看完整记录、查看照片、管理数据</p>
+      </a>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    (async function () {
+      try {
+        var data = await App.apiJSON('/api/stats');
+        if (data) {
+          document.getElementById('statToday').textContent = data.today_count;
+          document.getElementById('statTotal').textContent = data.total_count;
+          document.getElementById('statUsers').textContent = data.user_count;
+        }
+      } catch (e) {}
+
+      // 检查登录状态，更新导航
+      try {
+        var me = await App.apiJSON('/api/me');
+        if (me && me.user) {
+          document.getElementById('loginLink').textContent = me.user.username;
+          document.getElementById('loginLink').href = '/audit';
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

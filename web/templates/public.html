@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今日违纪公示 - 违纪管理系统</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="top-bar">
+    <span class="title">今日违纪公示</span>
+    <nav>
+      <a href="/">首页</a>
+      <a href="/public" class="cur">公示</a>
+      <a href="/login">登录</a>
+    </nav>
+    <div class="right">
+      <span class="refresh-info" id="refreshTimer">20秒后刷新</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="panel">
+      <div class="panel-head">
+        <span>今日违纪一览表</span>
+        <span style="font-weight:normal">
+          <span class="text-muted" id="dateDisplay"></span>
+          &nbsp;
+          <span class="tag" id="countBadge">0 条</span>
+        </span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>序号</th>
+              <th>宿舍号</th>
+              <th>姓名</th>
+              <th>班级</th>
+              <th>时间段</th>
+              <th>违纪原因</th>
+              <th>部门</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <tr><td colspan="8" class="loading">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="text-c text-muted" style="padding:10px;font-size:12px;">
+        各位老师同学如有争议，请联系学生科。真实结果以学生科通告为准。
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    var countdown = 20;
+
+    async function loadData() {
+      try {
+        var res = await fetch('/api/violations/today', { credentials: 'same-origin' });
+        var data = await res.json();
+
+        var tbody = document.getElementById('tableBody');
+        document.getElementById('dateDisplay').textContent = data.date;
+        document.getElementById('countBadge').textContent = data.count + ' 条';
+
+        if (!data.data || data.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" class="empty">今日暂无违纪记录</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.data.map(function (v, i) {
+          return '<tr>' +
+            '<td>' + (i + 1) + '</td>' +
+            '<td>' + App.escapeHtml(v.dorm) + '</td>' +
+            '<td><b>' + App.escapeHtml(v.student_name) + '</b></td>' +
+            '<td>' + App.escapeHtml(v.class_name) + '</td>' +
+            '<td><span class="tag tag-warn">' + App.escapeHtml(v.period) + '</span></td>' +
+            '<td>' + App.escapeHtml(v.reason) + '</td>' +
+            '<td><span class="tag">' + App.escapeHtml(v.department) + '</span></td>' +
+            '<td class="text-muted">' + App.formatDateTime(v.created_at) + '</td>' +
+            '</tr>';
+        }).join('');
+      } catch (e) {
+        document.getElementById('tableBody').innerHTML =
+          '<tr><td colspan="8" class="text-c text-red">加载失败，稍后重试</td></tr>';
+      }
+    }
+
+    function tick() {
+      countdown--;
+      if (countdown <= 0) {
+        countdown = 20;
+        loadData();
+      }
+      document.getElementById('refreshTimer').textContent = countdown + '秒后刷新';
+    }
+
+    loadData();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>

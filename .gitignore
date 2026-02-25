@@ -1,0 +1,5 @@
+server
+uploads/
+*.exe
+*.log
+.env

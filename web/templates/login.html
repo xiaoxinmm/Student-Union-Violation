@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 - 违纪管理系统</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-box">
+      <h1>系统登录</h1>
+      <p class="sub">学生会违纪记录管理系统</p>
+
+      <div class="login-err" id="loginError"></div>
+
+      <form id="loginForm" onsubmit="return handleLogin(event)">
+        <div class="fg">
+          <label for="username">用户名</label>
+          <input type="text" id="username" class="fc" placeholder="请输入用户名" autocomplete="username" required>
+        </div>
+        <div class="fg">
+          <label for="password">密码</label>
+          <input type="password" id="password" class="fc" placeholder="请输入密码" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-blue" id="submitBtn">登 录</button>
+      </form>
+
+      <div class="mt-2 text-c">
+        <a href="/" style="font-size:13px;color:#999">&lt;- 返回首页</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+  <script>
+    // 已登录则跳转
+    (async function () {
+      try {
+        var data = await App.apiJSON('/api/me');
+        if (data && data.user) {
+          window.location.href = data.user.role === 'admin' ? '/audit' : '/record';
+        }
+      } catch (e) {}
+    })();
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      var btn = document.getElementById('submitBtn');
+      var errEl = document.getElementById('loginError');
+
+      btn.disabled = true;
+      btn.textContent = '登录中...';
+      errEl.style.display = 'none';
+
+      try {
+        var res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value
+          })
+        });
+
+        var data = await res.json();
+
+        if (res.ok) {
+          var role = data.user ? data.user.role : '';
+          window.location.href = role === 'admin' ? '/audit' : '/record';
+        } else {
+          errEl.textContent = data.error || '登录失败';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        errEl.textContent = '网络错误，请重试';
+        errEl.style.display = 'block';
+      }
+
+      btn.disabled = false;
+      btn.textContent = '登 录';
+    }
+  </script>
+</body>
+</html>
