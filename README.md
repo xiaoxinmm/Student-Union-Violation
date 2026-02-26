@@ -89,3 +89,7 @@ web/
 - 生产环境记得改 `JWT_SECRET` 和数据库密码
 - 上传的照片存在 `uploads/` 目录（Docker 部署时是 volume）
 - 导出的 CSV 带 BOM 头，Windows 下 Excel 打开不会乱码
+
+## License
+
+[AGPL-3.0](LICENSE)
